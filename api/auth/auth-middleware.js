@@ -1,6 +1,6 @@
 const { JWT_SECRET } = require("../secrets"); // use this secret!
 const yup = require('yup')
-
+const jwt = require('jsonwebtoken')
 const messageSchema = yup.object({
   username: yup.string(),
   password: yup.string().required("/ must be longer than 3/i").min(3, "/ must be longer than 3/i"),
@@ -8,26 +8,25 @@ const messageSchema = yup.object({
 })
 
 const restricted = (req, res, next) => {
-  /*
-    If the user does not provide a token in the Authorization header:
-    status 401
-    {
-      "message": "Token required"
-    }
-
-    If the provided token does not verify:
-    status 401
-    {
-      "message": "Token invalid"
-    }
-
-    Put the decoded token in the req object, to make life easier for middlewares downstream!
-  */
- next()
+  const token = req.headers.authorization
+  if (token) {
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      if (err) {
+        next({ status: 401, message: 'token bad' })
+      } else {
+        req.decodedJwt = decoded
+        next()
+      }
+    })
+  } else {
+    next({ status: 401, message: 'token required' })
+  }
 }
 
 const only = role_name => (req, res, next) => {
-next()
+  console.log(req.decodedJwt.role_name )
+  if (req.decodedJwt.role_name === role_name) next()
+  else next({ status: 403, message: 'this is not for you'})
 }
 
 
