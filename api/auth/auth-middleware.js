@@ -1,67 +1,64 @@
 const { JWT_SECRET } = require("../secrets"); // use this secret!
+const yup = require('yup')
+const jwt = require('jsonwebtoken')
+const User = require('../users/users-model')
+const messageSchema = yup.object({
+  username: yup.string(),
+  password: yup.string().required("/ must be longer than 3/i").min(3, "/ must be longer than 3/i"),
+  role_name: yup.string().trim().max(32, 'can not be longer than 32 chars')
+})
 
 const restricted = (req, res, next) => {
-  /*
-    If the user does not provide a token in the Authorization header:
-    status 401
-    {
-      "message": "Token required"
-    }
-
-    If the provided token does not verify:
-    status 401
-    {
-      "message": "Token invalid"
-    }
-
-    Put the decoded token in the req object, to make life easier for middlewares downstream!
-  */
+  const token = req.headers.authorization
+  if (token) {
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      if (err) {
+        next({ status: 401, message: 'token invalid' })
+      } else {
+        req.decodedJwt = decoded
+        next()
+      }
+    })
+  } else {
+    next({ status: 401, message: 'token required' })
+  }
 }
 
 const only = role_name => (req, res, next) => {
-  /*
-    If the user does not provide a token in the Authorization header with a role_name
-    inside its payload matching the role_name passed to this function as its argument:
-    status 403
-    {
-      "message": "This is not for you"
-    }
-
-    Pull the decoded token from the req object, to avoid verifying it again!
-  */
+  console.log(req.decodedJwt.role_name)
+  if (req.decodedJwt.role_name === role_name) next()
+  else next({ status: 403, message: 'this is not for you' })
 }
 
 
 const checkUsernameExists = (req, res, next) => {
-  /*
-    If the username in req.body does NOT exist in the database
-    status 401
-    {
-      "message": "Invalid credentials"
-    }
-  */
+  const { username } = req.body
+  User.findBy({ username })
+    .then(user => {
+      if (!user) {
+        next()
+      } else {
+        next({ status: 422, message: "username taken" })
+      }
+    })
+    .catch(err => {
+      next(err)
+    })
 }
 
 
-const validateRoleName = (req, res, next) => {
-  /*
-    If the role_name in the body is valid, set req.role_name to be the trimmed string and proceed.
-
-    If role_name is missing from req.body, or if after trimming it is just an empty string,
-    set req.role_name to be 'student' and allow the request to proceed.
-
-    If role_name is 'admin' after trimming the string:
-    status 422
-    {
-      "message": "Role name can not be admin"
+const validateRoleName = async (req, res, next) => {
+  try {
+    const validate = await messageSchema.validate(req.body, { stripUnknown: true })
+    if (validate.role_name === 'admin') {
+      next({ status: 422, message: 'can not be admin' })
+    } else {
+      req.body = validate
+      next()
     }
-
-    If role_name is over 32 characters after trimming the string:
-    status 422
-    {
-      "message": "Role name can not be longer than 32 chars"
-    }
-  */
+  } catch (err) {
+    next({ status: 422, message: err.message })
+  }
 }
 
 module.exports = {

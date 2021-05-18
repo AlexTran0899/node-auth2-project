@@ -1,54 +1,25 @@
 const db = require('../../data/db-config.js');
 
 function find() {
-  /**
-    You will need to join two tables.
-    Resolves to an ARRAY with all users.
-
-    [
-      {
-        "user_id": 1,
-        "username": "bob",
-        "role_name": "admin"
-      },
-      {
-        "user_id": 2,
-        "username": "sue",
-        "role_name": "instructor"
-      }
-    ]
-   */
+  return db('users as u')
+  .leftJoin('roles as r', 'u.role_id', 'r.role_id')
+  .select('u.user_id', 'u.username', 'role_name')
 }
 
 function findBy(filter) {
-  /**
-    You will need to join two tables.
-    Resolves to an ARRAY with all users that match the filter condition.
-
-    [
-      {
-        "user_id": 1,
-        "username": "bob",
-        "password": "$2a$10$dFwWjD8hi8K2I9/Y65MWi.WU0qn9eAVaiBoRSShTvuJVGw8XpsCiq",
-        "role_name": "admin",
-      }
-    ]
-   */
+  return db('users').where(filter).first()
 }
 
 function findById(user_id) {
-  /**
-    You will need to join two tables.
-    Resolves to the user with the given user_id.
-
-    {
-      "user_id": 2,
-      "username": "sue",
-      "role_name": "instructor"
-    }
-   */
+  return db('users as u')
+  .leftJoin('roles as r', 'u.role_id', 'r.role_id')
+  .select('u.user_id', 'u.username', 'role_name')
+  .where({user_id}).first()
 }
-
+//1 admin
+//2 student
+//3 instructor
+//4 team lead
 /**
   Creating a user requires a single insert (into users) if the role record with the given
   role_name already exists in the db, or two inserts (into roles and then into users)
